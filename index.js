@@ -26,11 +26,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const color = d3
     .scaleThreshold()
-    .domain(d3.range(2, 50))
-    .range(d3.schemeBlues[9]);
+    .domain([3, 12, 21, 30, 39, 48, 57, 66])
+    .range(d3.schemeGreens[9]);
+
   const x = d3
     .scaleLinear()
-    .domain([1, 10])
+    .domain([1, 75])
     .rangeRound([600, 860]);
 
   const g = svg
@@ -64,27 +65,39 @@ document.addEventListener('DOMContentLoaded', () => {
     .select('.domain')
     .remove();
 
-  d3.json(
-    'https://raw.githubusercontent.com/no-stack-dub-sack/testable-projects-fcc/master/src/data/choropleth_map/for_user_education.json'
-  ).then(data => {
-    edu.set(data.fips, +data.bachelorsOrHigher);
-
+  const promises = [
     d3.json(
       'https://raw.githubusercontent.com/no-stack-dub-sack/testable-projects-fcc/master/src/data/choropleth_map/counties.json'
-    ).then(json => {
-      svg
-        .append('g')
-        .attr('class', 'counties')
-        .selectAll('path')
-        .data(topojson.feature(json, json.objects.counties).features)
-        .enter()
-        .append('path')
-        .attr('fill', d => color(edu.get(d)))
-        .attr('d', path)
-        .append('title')
-        .text(d => `${d.bachelorsOrHigher}%`);
+    ),
+    d3.json(
+      'https://raw.githubusercontent.com/no-stack-dub-sack/testable-projects-fcc/master/src/data/choropleth_map/for_user_education.json'
+    ),
+  ];
+
+  Promise.all(promises).then(ready);
+
+  function ready(us) {
+    us[1].forEach(d => {
+      edu.set(d.fips, [+d.bachelorsOrHigher, d.area_name, d.state]);
     });
-    // svg.selectAll('path');
-    console.log(edu);
-  });
+    svg
+      .append('g')
+      .attr('class', 'counties')
+      .selectAll('path')
+      .data(topojson.feature(us[0], us[0].objects.counties).features)
+      .enter()
+      .append('path')
+      .attr('fill', d => color(edu.get(d.id)[0]))
+      .attr('d', path)
+      .append('title')
+      .text(
+        d => `${edu.get(d.id)[1]}, ${edu.get(d.id)[2]}: ${edu.get(d.id)[0]}%`
+      )
+
+    svg
+      .append('path')
+      .datum(topojson.mesh(us[0], us[0].objects.states, (a, b) => a !== b))
+      .attr('class', 'states')
+      .attr('d', path);
+  }
 });
